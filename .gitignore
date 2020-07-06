@@ -1,5 +1,8 @@
 # Project-specific files
 data/
+data_cad/
+data_noc/
+data_coh/
 logging/
 testing/
 

@@ -7,11 +7,23 @@ import sys
 from collections import defaultdict
 
 # Modify these parameters per call
-LEAGUE = 'coh'
+LEAGUE = 'cad'
 SEASON = 'sx'
-WEEK = 1
-AUTOMATCH_DEADLINE = '2020-06-28 07:00:00'      # 7pm UTC = midnight PDT
-PRIOR_STDEV = 600.0
+WEEK = 2
+PRIOR_STDEV_BY_WEEK = {
+    1: 300.0,
+    2: 450.0,
+    3: 600.0,
+    4: 600.0,
+}
+AUTOMATCH_DEADLINE_BY_WEEK = {
+    1: '2020-06-28 07:00:00',
+    2: '2020-07-05 07:00:00',
+    3: '2020-07-12 07:00:00',
+    4: '2020-07-19 07:00:00',
+}
+PRIOR_STDEV = PRIOR_STDEV_BY_WEEK[WEEK]
+AUTOMATCH_DEADLINE = AUTOMATCH_DEADLINE_BY_WEEK[WEEK]
 
 mysql_db_host = 'condor.live'
 mysql_db_user = 'necrobot-read'
@@ -19,10 +31,11 @@ mysql_db_passwd = 'necrobot-read'
 mysql_db_name = 'condor_x'
 
 # Don't modify these
-PRIOR_ELOS_FILENAME = 'data/ratings_{s}_{lg}_wk{w}.csv'.format(s=SEASON, lg=LEAGUE, w=WEEK-1)
-ELO_RESULTS_FILENAME = 'data/ratings_{s}_{lg}_wk{w}'.format(s=SEASON, lg=LEAGUE, w=WEEK)
-RECORDS_FILENAME = 'data/records_{s}_{lg}_wk{w}'.format(s=SEASON, lg=LEAGUE, w=WEEK)
-LOG_FILENAME = 'data/elorate_log.txt'
+FOLDER = 'data_{league}'.format(league=LEAGUE)
+PRIOR_ELOS_FILENAME = '{f}/ratings_{s}_{lg}_wk{w}.csv'.format(f=FOLDER, s=SEASON, lg=LEAGUE, w=0)
+ELO_RESULTS_FILENAME = '{f}/ratings_{s}_{lg}_wk{w}'.format(f=FOLDER, s=SEASON, lg=LEAGUE, w=WEEK)
+RECORDS_FILENAME = '{f}/records_{s}_{lg}_wk{w}'.format(f=FOLDER, s=SEASON, lg=LEAGUE, w=WEEK)
+LOG_FILENAME = '{f}/elorate_log.txt'.format(f=FOLDER)
 
 # Don't use these racers in the computation
 ignored_racers = [

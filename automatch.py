@@ -14,15 +14,25 @@ mysql_db_name = 'condor_x'
 
 LEAGUE = 'noc'
 SEASON = 'sx'
-WEEK = 1
-RIDER = '{s}_{lg}_wk{w}'.format(s=SEASON, lg=LEAGUE, w=WEEK)
-NUM_AUTOGENS = 1
-MINIMUM_CYCLE_SIZE = 1
+WEEK = 2    # Matchups for week AFTER this week
+NUM_AUTOGENS = 2 if LEAGUE == 'cad' else 1
+MINIMUM_CYCLE_SIZE = 7 if LEAGUE == 'cad' else 1
 
-INPUT_FILENAME = 'data/ratings_{r}.csv'.format(r=RIDER)
-MATCHUP_FILENAME = 'data/matchups_{r}.csv'.format(r=RIDER)
-MATCHUP_SUMMARY_FILENAME = 'data/matchcycles_{r}.csv'.format(r=RIDER)
-BANNED_MACHUPS_FILENAME = 'data/bannedmatches_{s}.txt'.format(s=SEASON)
+if LEAGUE == 'coh':
+    SPECIAL_NUM_AUTOGENS = {'tufwfo': 2}
+elif LEAGUE == 'noc':
+    SPECIAL_NUM_AUTOGENS = {'carlibraun': 2}
+else:
+    SPECIAL_NUM_AUTOGENS = {}
+
+FOLDER = 'data_{league}'.format(league=LEAGUE)
+RIDER = '{s}_{lg}_wk{w}'.format(s=SEASON, lg=LEAGUE, w=WEEK)
+
+INPUT_FILENAME = '{f}/ratings_{s}_{lg}_wk{w}.csv'.format(f=FOLDER, s=SEASON, lg=LEAGUE, w=WEEK)
+MATCHUP_FILENAME = '{f}/matchups_{s}_{lg}_wk{w}.csv'.format(f=FOLDER, s=SEASON, lg=LEAGUE, w=WEEK+1)
+MATCHUP_SUMMARY_FILENAME = '{f}/matchcycles_{s}_{lg}_wk{w}.txt'.format(f=FOLDER, s=SEASON, lg=LEAGUE, w=WEEK+1)
+BANNED_MACHUPS_FILENAME = '{f}/bannedmatches_{s}.txt'.format(f=FOLDER, s=SEASON)
+DROPPED_RACERS_FILENAME = '{f}/drops_{lg}.txt'.format(f=FOLDER, lg=LEAGUE)
 
 rand = random.Random()
 rand.seed()
@@ -93,7 +103,10 @@ def get_matchups(
             if player in matchups[otherplayer]:
                 edges_from_player.append(matchups[otherplayer][player])
 
-        ilp_prob += pulp.lpSum(edges_from_player) == num_matches, ""
+        if player in SPECIAL_NUM_AUTOGENS:
+            ilp_prob += pulp.lpSum(edges_from_player) == SPECIAL_NUM_AUTOGENS[player], ""
+        else:
+            ilp_prob += pulp.lpSum(edges_from_player) == num_matches, ""
 
     # Solve problem
     ilp_prob.solve(pulp.PULP_CBC_CMD(maxSeconds=20, msg=0, fracGap=0.001))
@@ -220,7 +233,7 @@ def enforce_min_cycle_size(
     return matchup_set
 
 
-def write_matchup_csv_from_elo_csv(csv_filename: str, matchup_filename: str, summary_filename: str):
+def write_matchup_csv_from_elo_csv(csv_filename: str, matchup_filename: str, summary_filename: str, drops_filename: str):
     the_elos = read_elos_from_csv(csv_filename)
     the_elos_dict = dict()
     name_cap_dict = dict()
@@ -232,6 +245,13 @@ def write_matchup_csv_from_elo_csv(csv_filename: str, matchup_filename: str, sum
         the_elos_dict[player_name.lower()] = player_elo
 
     banned_matchups = get_banned_matchups()
+
+    with open(drops_filename, 'r') as drops_file:
+        for line in drops_file:
+            name = line.rstrip('\n').lower()
+            if name in the_elos_dict:
+                del the_elos_dict[name]
+
     matches = get_matchups(elos=the_elos_dict, banned_matches=banned_matchups, num_matches=NUM_AUTOGENS)
 
     if MINIMUM_CYCLE_SIZE >= 3 and NUM_AUTOGENS == 2:
@@ -315,14 +335,17 @@ def get_banned_matchups() -> Set[Matchup]:
             """
             SELECT 
                 ud1.twitch_name AS racer_1,
-                ud2.twitch_name AS racer_2
+                ud2.twitch_name AS racer_2,
+                league_tag AS league
             FROM 
                 matches
             JOIN
                 necrobot.users ud1 ON ud1.user_id = matches.racer_1_id
             JOIN
                 necrobot.users ud2 ON ud2.user_id = matches.racer_2_id
-            """
+            WHERE
+                league_tag = '{league}'
+            """.format(league=LEAGUE)
         )
 
         banned_matchups = get_extra_banned_matchups()    # type: Set[Matchup]
@@ -350,9 +373,10 @@ def main():
 
     matchup_output = MATCHUP_FILENAME
     summary_output = MATCHUP_SUMMARY_FILENAME
+    dropped_racers = DROPPED_RACERS_FILENAME
 
     print('Making matchups from Elo file {}...'.format(elo_csv))
-    write_matchup_csv_from_elo_csv(elo_csv, matchup_output, summary_output)
+    write_matchup_csv_from_elo_csv(elo_csv, matchup_output, summary_output, dropped_racers)
     print('Matchups created.')
 
 
