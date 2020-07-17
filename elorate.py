@@ -9,7 +9,7 @@ from collections import defaultdict
 # Modify these parameters per call
 LEAGUE = 'cad'
 SEASON = 'sx'
-WEEK = 2
+WEEK = 4
 PRIOR_STDEV_BY_WEEK = {
     1: 300.0,
     2: 450.0,
@@ -398,12 +398,10 @@ def get_gametuples_from_database(database_name):
 
             if winner < loser:
                 match = matchup_tuples[(winner, loser)]
-                if match[0] + match[1] < 3:
-                    match[0] += 1
+                match[0] += 1
             else:
                 match = matchup_tuples[(loser, winner)]
-                if match[0] + match[1] < 3:
-                    match[1] += 1
+                match[1] += 1
 
         return list((k[0], k[1], v[0], v[1]) for k, v in matchup_tuples.items())
 

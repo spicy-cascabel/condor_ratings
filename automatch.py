@@ -14,14 +14,14 @@ mysql_db_name = 'condor_x'
 
 LEAGUE = 'noc'
 SEASON = 'sx'
-WEEK = 2    # Matchups for week AFTER this week
+WEEK = 3    # Matchups for week AFTER this week
 NUM_AUTOGENS = 2 if LEAGUE == 'cad' else 1
 MINIMUM_CYCLE_SIZE = 7 if LEAGUE == 'cad' else 1
 
 if LEAGUE == 'coh':
-    SPECIAL_NUM_AUTOGENS = {'tufwfo': 2}
+    SPECIAL_NUM_AUTOGENS = {'d_tea': 2}
 elif LEAGUE == 'noc':
-    SPECIAL_NUM_AUTOGENS = {'carlibraun': 2}
+    SPECIAL_NUM_AUTOGENS = {'abu__yazan': 2}
 else:
     SPECIAL_NUM_AUTOGENS = {}
 
