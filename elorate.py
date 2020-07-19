@@ -20,7 +20,7 @@ AUTOMATCH_DEADLINE_BY_WEEK = {
     1: '2020-06-28 07:00:00',
     2: '2020-07-05 07:00:00',
     3: '2020-07-12 07:00:00',
-    4: '2020-07-19 07:00:00',
+    4: '2020-07-19 09:00:00',
 }
 PRIOR_STDEV = PRIOR_STDEV_BY_WEEK[WEEK]
 AUTOMATCH_DEADLINE = AUTOMATCH_DEADLINE_BY_WEEK[WEEK]
@@ -227,20 +227,26 @@ def iterate_elos(player_list, max_repeats=200000, max_sec=1200, verbose=False):
                 print(format_str.format(iter=idx, sec=sec, elo=l2_elo_diff, grad=l2_grad, ll=log_prob))
                 iter_log.write(format_str.format(iter=idx, sec=sec, elo=l2_elo_diff, grad=l2_grad, ll=log_prob) + '\n')
 
-            if l2_elo_diff < 0.0000000000001 or l2_grad < 0.0000000000001:
+            if l2_elo_diff < 0.000000000000001 or l2_grad < 0.00000000000001:
                 iter_log.write('Finished in {iter} iterations.\n'.format(iter=idx))
                 return
             elif sec > max_sec:
+                log_prob = 0
+                for player in player_list:
+                    log_prob += player.log_likelihood(player.r)
                 iter_log.write(
                     'Timed out: '
-                    + format_str.format(iter=idx, sec=sec, elo=l2_elo_diff, grad=l2_grad)
+                    + format_str.format(iter=idx, sec=sec, elo=l2_elo_diff, grad=l2_grad, ll=log_prob)
                     + '\n'
                 )
                 return
 
+        log_prob = 0
+        for player in player_list:
+            log_prob += player.log_likelihood(player.r)
         iter_log.write(
             'Completed maximum number of iterations: '
-            + format_str.format(iter=max_repeats, sec=sec, elo=l2_elo_diff, grad=l2_grad)
+            + format_str.format(iter=max_repeats, sec=sec, elo=l2_elo_diff, grad=l2_grad, ll=log_prob)
             + '\n'
         )
 
@@ -326,15 +332,17 @@ def get_elos(
     gametuples = get_gametuples_from_database(games_database_name)
     for game in custom_matches:
         gametuples.append(game)
-    # for game in gametuples:
-    #     print(game)
+
+    total_games = 0
+    for p1, p2, w1, w2 in gametuples:
+        total_games += w1 + w2
+    print("Total number of games counted: {}".format(total_games))
 
     player_dict = make_player_dict(
         prior_elos=prior_elos,
         gametuples=gametuples,
         stdev=prior_stdev
     )
-    # print(player_dict)
 
     iterate_elos(
         player_list=player_dict.values(),
