@@ -10,19 +10,19 @@ import sys
 mysql_db_host = 'condor.live'
 mysql_db_user = 'necrobot-read'
 mysql_db_passwd = 'necrobot-read'
-mysql_db_name = 'condor_x'
+mysql_db_name = 'condor_xii'
 
-LEAGUE = 'noc'
-SEASON = 'sx'
-WEEK = 3    # Matchups for week AFTER this week
-NUM_AUTOGENS = 2 if LEAGUE == 'cad' else 1
-MINIMUM_CYCLE_SIZE = 7 if LEAGUE == 'cad' else 1
+LEAGUE = 'coh'
+SEASON = 'sxii'
+WEEK = 1    # Matchups for week AFTER this week
+NUM_AUTOGENS = 2 if LEAGUE in {'cad', 'dor'} else 1
+MINIMUM_CYCLE_SIZE = 7 if LEAGUE == 'cad' else (7 if LEAGUE == 'dor' else 1)
 
-if LEAGUE == 'coh':
-    SPECIAL_NUM_AUTOGENS = {'d_tea': 2}
-elif LEAGUE == 'noc':
-    SPECIAL_NUM_AUTOGENS = {'abu__yazan': 2}
-else:
+if LEAGUE == 'cad':
+    SPECIAL_NUM_AUTOGENS = {}
+elif LEAGUE == 'dor':
+    SPECIAL_NUM_AUTOGENS = {}
+elif LEAGUE == 'coh':
     SPECIAL_NUM_AUTOGENS = {}
 
 FOLDER = 'data_{league}'.format(league=LEAGUE)
@@ -76,6 +76,7 @@ def get_matchups(
 
     # Make variables
     all_players = list(elos.keys())
+    rand.shuffle(all_players)
     matchups = dict()   # type: Dict[str, Dict[str, pulp.LpVariable]]
     for p_idx in range(len(all_players)):
         p1_name = all_players[p_idx]
@@ -109,7 +110,7 @@ def get_matchups(
             ilp_prob += pulp.lpSum(edges_from_player) == num_matches, ""
 
     # Solve problem
-    ilp_prob.solve(pulp.PULP_CBC_CMD(maxSeconds=20, msg=0, fracGap=0.001))
+    ilp_prob.solve(pulp.PULP_CBC_CMD(maxSeconds=20, msg=False, fracGap=0.001))
     print("Status:", pulp.LpStatus[ilp_prob.status])
     created_matches = set()
     for player in matchups:
@@ -251,16 +252,22 @@ def write_matchup_csv_from_elo_csv(csv_filename: str, matchup_filename: str, sum
             name = line.rstrip('\n').lower()
             if name in the_elos_dict:
                 del the_elos_dict[name]
+            else:
+                print(f"Failed to find racer {name} in elos (who is supposed to be dropped).")
 
     matches = get_matchups(elos=the_elos_dict, banned_matches=banned_matchups, num_matches=NUM_AUTOGENS)
 
     if MINIMUM_CYCLE_SIZE >= 3 and NUM_AUTOGENS == 2:
-        matches = enforce_min_cycle_size(
-            matches_by_player=get_matches_by_player(matches),
-            elos=the_elos_dict,
-            banned_matches=banned_matchups,
-            min_cycle_size=MINIMUM_CYCLE_SIZE
-        )
+        try:
+            matches = enforce_min_cycle_size(
+                matches_by_player=get_matches_by_player(matches),
+                elos=the_elos_dict,
+                banned_matches=banned_matchups,
+                min_cycle_size=MINIMUM_CYCLE_SIZE
+            )
+        except AssertionError:
+            print('Failed to enforce minimum cycle size!')
+            pass
 
     matches_by_player = get_matches_by_player(matches)   # type: Dict[str, List[str]]
 
@@ -358,7 +365,10 @@ def get_banned_matchups() -> Set[Matchup]:
             racer_2 = row[1].lower()
             banned_matchups.add(Matchup(racer_1, racer_2))
 
-        print('Banned matchups:', banned_matchups)
+        with open(f'data_{LEAGUE}/banned_matches.txt', 'w') as file:
+            for mu in banned_matchups:
+                file.write(str(mu))
+                file.write('\n')
 
         return banned_matchups
     finally:

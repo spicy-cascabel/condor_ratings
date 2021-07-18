@@ -3,14 +3,14 @@ import math
 
 
 ratings = {
-    'incnone': 2353,
-    'siveure': 2268,
-    'blairencryptid': 1986,
-    'tang_pls': 1949,
-    'bookworm52': 1896,
-    'Tufwfo': 1886,
-    'pancelor': 1879,
-    'biggiemac42': 1862,
+    'spootybiscuit': 2209.313186234341,
+    'monster_racer': 2016.6219691809408,
+    'siveure': 1975.3024997201467,
+    'raviolinguini': 1970.6208563819705,
+    'Tufwfo': 1941.4400149373444,
+    'Ocre307': 1916.4307293964844,
+    'nd_tea': 1915.147224792635,
+    'RoyalGoof': 1900.2853456204928,
 }
 
 
@@ -139,7 +139,7 @@ def get_outcomes_json():
 
 
 if __name__ == "__main__":
-    with open('data/s9_finals_matchscore_predictions.json', 'w') as file:
+    with open('data/sx2_finals_matchscore_predictions.json', 'w') as file:
         json.dump(get_outcomes_json(), file, indent=4)
     # with open('data/s8_finals_predictions.txt', 'w') as file:
     #     file.write('Best of 3 predictions:\n')

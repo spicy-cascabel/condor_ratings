@@ -7,28 +7,33 @@ import sys
 from collections import defaultdict
 
 # Modify these parameters per call
-LEAGUE = 'cad'
-SEASON = 'sx'
-WEEK = 4
+LEAGUE = 'coh'
+SEASON = 'sxii'
+WEEK = 1
 PRIOR_STDEV_BY_WEEK = {
     1: 300.0,
     2: 450.0,
     3: 600.0,
     4: 600.0,
 }
+
 AUTOMATCH_DEADLINE_BY_WEEK = {
-    1: '2020-06-28 07:00:00',
-    2: '2020-07-05 07:00:00',
-    3: '2020-07-12 07:00:00',
-    4: '2020-07-19 09:00:00',
+    1: '2021-07-18 18:00:00',
+    2: '2021-07-25 18:00:00',
+    3: '2021-07-01 18:00:00',
+    4: '2021-07-08 09:00:00',
 }
+
+OVERTURN_RESULTS = {
+}
+
 PRIOR_STDEV = PRIOR_STDEV_BY_WEEK[WEEK]
 AUTOMATCH_DEADLINE = AUTOMATCH_DEADLINE_BY_WEEK[WEEK]
 
 mysql_db_host = 'condor.live'
 mysql_db_user = 'necrobot-read'
 mysql_db_passwd = 'necrobot-read'
-mysql_db_name = 'condor_x'
+mysql_db_name = 'condor_xii'
 
 # Don't modify these
 FOLDER = 'data_{league}'.format(league=LEAGUE)
@@ -403,6 +408,11 @@ def get_gametuples_from_database(database_name):
 
             if winner in ignored_racers or loser in ignored_racers:
                 print("Ignored game {r1}-{r2}".format(r1=winner, r2=loser))
+
+            if (loser, winner) in OVERTURN_RESULTS:
+                OVERTURN_RESULTS.remove((loser, winner))
+                winner, loser = loser, winner
+                print("Overturned game {r1}-{r2}".format(r1=loser, r2=winner))
 
             if winner < loser:
                 match = matchup_tuples[(winner, loser)]
