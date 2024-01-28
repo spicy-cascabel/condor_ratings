@@ -7,9 +7,9 @@ import sys
 from collections import defaultdict
 
 # Modify these parameters per call
-LEAGUE = 'coh'
-SEASON = 'sxii'
-WEEK = 1
+LEAGUE = 'ari'
+SEASON = 'xiv'
+WEEK = 4
 PRIOR_STDEV_BY_WEEK = {
     1: 300.0,
     2: 450.0,
@@ -18,10 +18,10 @@ PRIOR_STDEV_BY_WEEK = {
 }
 
 AUTOMATCH_DEADLINE_BY_WEEK = {
-    1: '2021-07-18 18:00:00',
-    2: '2021-07-25 18:00:00',
-    3: '2021-07-01 18:00:00',
-    4: '2021-07-08 09:00:00',
+    1: '2022-09-25 18:00:00',
+    2: '2022-10-02 18:00:00',
+    3: '2022-10-09 18:00:00',
+    4: '2022-10-16 18:00:00',
 }
 
 OVERTURN_RESULTS = {
@@ -33,14 +33,22 @@ AUTOMATCH_DEADLINE = AUTOMATCH_DEADLINE_BY_WEEK[WEEK]
 mysql_db_host = 'condor.live'
 mysql_db_user = 'necrobot-read'
 mysql_db_passwd = 'necrobot-read'
-mysql_db_name = 'condor_xii'
+mysql_db_name = 'condorxiv'
 
 # Don't modify these
-FOLDER = 'data_{league}'.format(league=LEAGUE)
-PRIOR_ELOS_FILENAME = '{f}/ratings_{s}_{lg}_wk{w}.csv'.format(f=FOLDER, s=SEASON, lg=LEAGUE, w=0)
-ELO_RESULTS_FILENAME = '{f}/ratings_{s}_{lg}_wk{w}'.format(f=FOLDER, s=SEASON, lg=LEAGUE, w=WEEK)
-RECORDS_FILENAME = '{f}/records_{s}_{lg}_wk{w}'.format(f=FOLDER, s=SEASON, lg=LEAGUE, w=WEEK)
-LOG_FILENAME = '{f}/elorate_log.txt'.format(f=FOLDER)
+FOLDER = 'data'
+RIDER = f'{SEASON}_{LEAGUE}_wk{WEEK}'
+
+INPUT_FILENAME = f'{FOLDER}/ratings_{SEASON}_{LEAGUE}_wk{WEEK-1}.csv'
+MATCHUP_FILENAME = f'{FOLDER}/matchups_{RIDER}.csv'
+MATCHUP_SUMMARY_FILENAME = f'{FOLDER}/matchcycles_{RIDER}.txt'
+BANNED_MACHUPS_FILENAME = f'{FOLDER}/bannedmatches_{RIDER}.txt'
+DROPPED_RACERS_FILENAME = f'{FOLDER}/drops_{RIDER}.txt'
+
+PRIOR_ELOS_FILENAME = f'{FOLDER}/ratings_{SEASON}_{LEAGUE}_wk0.csv'
+ELO_RESULTS_FILENAME = f'{FOLDER}/ratings_{RIDER}'
+RECORDS_FILENAME = f'{FOLDER}/records_{RIDER}'
+LOG_FILENAME = f'{FOLDER}/elorate_log.txt'
 
 # Don't use these racers in the computation
 ignored_racers = [

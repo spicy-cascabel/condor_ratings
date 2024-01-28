@@ -6,33 +6,34 @@ from typing import Dict, List, Set, Tuple
 import mysql.connector
 import sys
 
-
 mysql_db_host = 'condor.live'
 mysql_db_user = 'necrobot-read'
 mysql_db_passwd = 'necrobot-read'
-mysql_db_name = 'condor_xii'
+mysql_db_name = 'condorxiv'
 
-LEAGUE = 'coh'
-SEASON = 'sxii'
-WEEK = 1    # Matchups for week AFTER this week
-NUM_AUTOGENS = 2 if LEAGUE in {'cad', 'dor'} else 1
-MINIMUM_CYCLE_SIZE = 7 if LEAGUE == 'cad' else (7 if LEAGUE == 'dor' else 1)
+LEAGUE = 'suz'
+SEASON = 'xiv'
+WEEK = 4    # Matchups for this week
+NUM_AUTOGENS = 2
+MINIMUM_CYCLE_SIZE = 7
+ALLOW_REPEAT_MATCHUPS = True
+REPEAT_MATCHUP_PENALTY = 600.0
 
 if LEAGUE == 'cad':
     SPECIAL_NUM_AUTOGENS = {}
-elif LEAGUE == 'dor':
+elif LEAGUE == 'mel':
     SPECIAL_NUM_AUTOGENS = {}
-elif LEAGUE == 'coh':
+else:
     SPECIAL_NUM_AUTOGENS = {}
 
-FOLDER = 'data_{league}'.format(league=LEAGUE)
-RIDER = '{s}_{lg}_wk{w}'.format(s=SEASON, lg=LEAGUE, w=WEEK)
+FOLDER = 'data'
+RIDER = f'{SEASON}_{LEAGUE}_wk{WEEK}'
 
-INPUT_FILENAME = '{f}/ratings_{s}_{lg}_wk{w}.csv'.format(f=FOLDER, s=SEASON, lg=LEAGUE, w=WEEK)
-MATCHUP_FILENAME = '{f}/matchups_{s}_{lg}_wk{w}.csv'.format(f=FOLDER, s=SEASON, lg=LEAGUE, w=WEEK+1)
-MATCHUP_SUMMARY_FILENAME = '{f}/matchcycles_{s}_{lg}_wk{w}.txt'.format(f=FOLDER, s=SEASON, lg=LEAGUE, w=WEEK+1)
-BANNED_MACHUPS_FILENAME = '{f}/bannedmatches_{s}.txt'.format(f=FOLDER, s=SEASON)
-DROPPED_RACERS_FILENAME = '{f}/drops_{lg}.txt'.format(f=FOLDER, lg=LEAGUE)
+INPUT_FILENAME = f'{FOLDER}/ratings_{SEASON}_{LEAGUE}_wk{WEEK-1}.csv'
+MATCHUP_FILENAME = f'{FOLDER}/matchups_{RIDER}.csv'
+MATCHUP_SUMMARY_FILENAME = f'{FOLDER}/matchcycles_{RIDER}.txt'
+BANNED_MACHUPS_FILENAME = f'{FOLDER}/bannedmatches_{RIDER}.txt'
+DROPPED_RACERS_FILENAME = f'{FOLDER}/drops_{RIDER}.txt'
 
 rand = random.Random()
 rand.seed()
@@ -57,6 +58,9 @@ class Matchup(object):
     def __repr__(self):
         return 'Matchup {} - {}'.format(self.player_1, self.player_2)
 
+    def __str__(self):
+        return '{} - {}'.format(self.player_1, self.player_2)
+
 
 def get_entropy(p1_elo: float, p2_elo: float) -> float:
     prob_p1_wins = 1 / (1 + pow(10, (p2_elo - p1_elo) / 400))
@@ -64,7 +68,7 @@ def get_entropy(p1_elo: float, p2_elo: float) -> float:
 
 
 def get_utility(p1_elo: float, p2_elo: float) -> float:
-    return math.sqrt(get_entropy(p1_elo, p2_elo))
+    return math.sqrt(get_entropy(p1_elo, p2_elo)) - abs(p1_elo - p2_elo)**2/400**2
 
 
 def get_matchups(
@@ -83,7 +87,7 @@ def get_matchups(
         matchups[p1_name] = dict()
         for q_idx in range(p_idx + 1, len(all_players)):
             p2_name = all_players[q_idx]
-            if Matchup(p1_name, p2_name) not in banned_matches:
+            if Matchup(p1_name, p2_name) not in banned_matches or ALLOW_REPEAT_MATCHUPS:
                 matchups[p1_name][p2_name] = pulp.LpVariable(
                     "matchup_{0}_{1}".format(p1_name, p2_name), 0, 1, pulp.LpInteger
                 )
@@ -92,7 +96,11 @@ def get_matchups(
     matchup_utility = dict()
     for player in matchups:
         for opp in matchups[player]:
-            matchup_utility[matchups[player][opp]] = get_utility(elos[player], elos[opp])
+            if Matchup(player, opp) in banned_matches:
+                matchup_utility[matchups[player][opp]] = \
+                    get_utility(abs(elos[player] - elos[opp]) + REPEAT_MATCHUP_PENALTY, 0.0)
+            else:
+                matchup_utility[matchups[player][opp]] = get_utility(elos[player], elos[opp])
 
     # Set optimization objective
     ilp_prob.setObjective(pulp.LpAffineExpression(matchup_utility, name="matchup_utility"))
@@ -117,6 +125,11 @@ def get_matchups(
         for opp in matchups[player]:
             if pulp.value(matchups[player][opp]) == 1:
                 created_matches.add(Matchup(player, opp,))
+
+    for matchup in created_matches:
+        if matchup in banned_matches:
+            print(f"Warning: Created match {str(matchup)}, which was banned.")
+
     return created_matches
 
 
@@ -247,13 +260,16 @@ def write_matchup_csv_from_elo_csv(csv_filename: str, matchup_filename: str, sum
 
     banned_matchups = get_banned_matchups()
 
-    with open(drops_filename, 'r') as drops_file:
-        for line in drops_file:
-            name = line.rstrip('\n').lower()
-            if name in the_elos_dict:
-                del the_elos_dict[name]
-            else:
-                print(f"Failed to find racer {name} in elos (who is supposed to be dropped).")
+    try:
+        with open(drops_filename, 'r') as drops_file:
+            for line in drops_file:
+                name = line.rstrip('\n').lower()
+                if name in the_elos_dict:
+                    del the_elos_dict[name]
+                else:
+                    print(f"Failed to find racer {name} in elos (who is supposed to be dropped).")
+    except FileNotFoundError:
+        print(f"Warning: Didn't find a drops file for Season {SEASON}, League {LEAGUE}.")
 
     matches = get_matchups(elos=the_elos_dict, banned_matches=banned_matchups, num_matches=NUM_AUTOGENS)
 
@@ -321,10 +337,13 @@ def read_elos_from_csv(csv_filename: str) -> List[Tuple[str, float]]:
 
 def get_extra_banned_matchups() -> Set[Matchup]:
     matchups = set()    # type: Set[Matchup]
-    with open(BANNED_MACHUPS_FILENAME) as file:
-        for line in file:
-            players = line.split(',')
-            matchups.add(Matchup(players[0].lower(), players[1].lower().rstrip('\n')))
+    try:
+        with open(BANNED_MACHUPS_FILENAME) as file:
+            for line in file:
+                players = line.split(',')
+                matchups.add(Matchup(players[0].lower(), players[1].lower().rstrip('\n')))
+    except FileNotFoundError:
+        print(f"Warning: Didn't find a banned matchups file for season {SEASON}, league {LEAGUE}.")
     return matchups
 
 
@@ -365,10 +384,13 @@ def get_banned_matchups() -> Set[Matchup]:
             racer_2 = row[1].lower()
             banned_matchups.add(Matchup(racer_1, racer_2))
 
-        with open(f'data_{LEAGUE}/banned_matches.txt', 'w') as file:
-            for mu in banned_matchups:
-                file.write(str(mu))
-                file.write('\n')
+        try:
+            with open(f'{FOLDER}/banned_matches_{SEASON}_{LEAGUE}.txt', 'w') as file:
+                for mu in banned_matchups:
+                    file.write(str(mu))
+                    file.write('\n')
+        except FileNotFoundError:
+            print(f"Warning: Didn't find a banned matchups file for season {SEASON}, league {LEAGUE}.")
 
         return banned_matchups
     finally:
