@@ -1,30 +1,44 @@
+import argparse
 import math
+import mysql.connector
 import pulp
 import random
-import unittest
-from typing import Dict, List, Set, Tuple
-import mysql.connector
 import sys
+from typing import Dict, List, Set, Tuple
+import unittest
 
-mysql_db_host = 'condor.live'
-mysql_db_user = 'necrobot-read'
-mysql_db_passwd = 'necrobot-read'
-mysql_db_name = 'condorxiv'
+# Modify these parameters per call
+parser = argparse.ArgumentParser(description='Generate ELOs!')
+parser.add_argument('--league', default='cad')
+parser.add_argument('--season', default='15')
+parser.add_argument('--db_name', default=None, help='Defaults to condor<season>')
+parser.add_argument('--week', default=1, type=int)
+parser.add_argument('--allow_repeat_matchups', default=False, action=argparse.BooleanOptionalAction)
+parser.add_argument('--elo_input_file', default=None)
+args = parser.parse_args()
 
-LEAGUE = 'suz'
-SEASON = 'xiv'
-WEEK = 4    # Matchups for this week
+LEAGUE = args.league
+SEASON = args.season
+WEEK = args.week
 NUM_AUTOGENS = 2
 MINIMUM_CYCLE_SIZE = 7
 ALLOW_REPEAT_MATCHUPS = True
 REPEAT_MATCHUP_PENALTY = 600.0
 
+mysql_db_host = 'condor.live'
+mysql_db_user = 'necrobot-read'
+mysql_db_passwd = 'necrobot-read'
+mysql_db_name = args.db_name if args.db_name else f'condor{SEASON}'
+
+# map of {racer: num} to override num_autogens
 if LEAGUE == 'cad':
     SPECIAL_NUM_AUTOGENS = {}
 elif LEAGUE == 'mel':
     SPECIAL_NUM_AUTOGENS = {}
 else:
     SPECIAL_NUM_AUTOGENS = {}
+
+# Don't edit below here, probably.
 
 FOLDER = 'data'
 RIDER = f'{SEASON}_{LEAGUE}_wk{WEEK}'
@@ -118,7 +132,7 @@ def get_matchups(
             ilp_prob += pulp.lpSum(edges_from_player) == num_matches, ""
 
     # Solve problem
-    ilp_prob.solve(pulp.PULP_CBC_CMD(maxSeconds=20, msg=False, fracGap=0.001))
+    ilp_prob.solve(pulp.PULP_CBC_CMD(timeLimit=20, msg=False, gapRel=0.001))
     print("Status:", pulp.LpStatus[ilp_prob.status])
     created_matches = set()
     for player in matchups:
@@ -398,10 +412,7 @@ def get_banned_matchups() -> Set[Matchup]:
 
 
 def main():
-    if len(sys.argv) > 1:
-        elo_csv = sys.argv[1]
-    else:
-        elo_csv = INPUT_FILENAME
+    elo_csv = args.elo_input_file if args.elo_input_file else INPUT_FILENAME
 
     matchup_output = MATCHUP_FILENAME
     summary_output = MATCHUP_SUMMARY_FILENAME

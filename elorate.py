@@ -1,15 +1,24 @@
-import math
-from typing import Dict, List, Tuple
-import mysql.connector
-import unittest
-import time
-import sys
+import argparse
 from collections import defaultdict
+import math
+import mysql.connector
+import sys
+import time
+from typing import Dict, List, Tuple
+import unittest
 
 # Modify these parameters per call
-LEAGUE = 'ari'
-SEASON = 'xiv'
-WEEK = 4
+parser = argparse.ArgumentParser(description='Generate ELOs!')
+parser.add_argument('--league', default='cad')
+parser.add_argument('--season', default='15')
+parser.add_argument('--db_name', default=None, help='Defaults to condor<season>')
+parser.add_argument('--elo_input_file', default=None)
+parser.add_argument('--week', default=1)
+args = parser.parse_args()
+
+LEAGUE = args.league
+SEASON = args.season
+WEEK = args.week
 PRIOR_STDEV_BY_WEEK = {
     1: 300.0,
     2: 450.0,
@@ -18,10 +27,10 @@ PRIOR_STDEV_BY_WEEK = {
 }
 
 AUTOMATCH_DEADLINE_BY_WEEK = {
-    1: '2022-09-25 18:00:00',
-    2: '2022-10-02 18:00:00',
-    3: '2022-10-09 18:00:00',
-    4: '2022-10-16 18:00:00',
+    1: '2024-03-03 18:00:00',
+    2: '2024-03-10 18:00:00',
+    3: '2024-03-17 18:00:00',
+    4: '2024-03-24 18:00:00',
 }
 
 OVERTURN_RESULTS = {
@@ -33,7 +42,7 @@ AUTOMATCH_DEADLINE = AUTOMATCH_DEADLINE_BY_WEEK[WEEK]
 mysql_db_host = 'condor.live'
 mysql_db_user = 'necrobot-read'
 mysql_db_passwd = 'necrobot-read'
-mysql_db_name = 'condorxiv'
+mysql_db_name = args.db_name if args.db_name else f'condor{SEASON}'
 
 # Don't modify these
 FOLDER = 'data'
@@ -438,13 +447,10 @@ def get_gametuples_from_database(database_name):
 # Main --------------------------------------
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        priors_filename = sys.argv[1]
-    else:
-        priors_filename = PRIOR_ELOS_FILENAME
+    elo_csv = args.elo_input_file if args.elo_input_file else INPUT_FILENAME
 
-    print('Getting Elo priors from file {}...'.format(priors_filename))
-    get_elos(priors_filename, mysql_db_name, verbose=True)
+    print('Getting Elo priors from file {}...'.format(elo_csv))
+    get_elos(elo_csv, mysql_db_name, verbose=True)
     print('Elos written to file {}.csv'.format(ELO_RESULTS_FILENAME))
 
 
