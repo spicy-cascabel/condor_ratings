@@ -7,6 +7,11 @@ data_dia/
 data_dor/
 logging/
 testing/
+.necrolab-cache/
+.necrobot-cache/
+
+# vim
+*.swp
 
 # PyCharm
 .idea/
